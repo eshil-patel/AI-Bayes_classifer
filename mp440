@@ -1,0 +1,170 @@
+import inspect
+import sys
+import math as Math
+from numpy import zeros
+
+'''
+Raise a "not defined" exception as a reminder 
+'''
+def _raise_not_defined():
+    print "Method not implemented: %s" % inspect.stack()[1][3]
+    sys.exit(1)
+
+
+'''
+Extract 'basic' features, i.e., whether a pixel is background or
+forground (part of the digit) 
+'''
+def extract_basic_features(digit_data, width, height):
+    features=[]
+    for i in range(28):
+        for j in range(28):
+            if digit_data[i][j]==0:
+                features.append(0)
+            else:
+                features.append(1)
+    return features
+
+'''
+Extract advanced features that you will come up with 
+'''
+def extract_advanced_features(digit_data, width, height):
+    features=[]
+    # Your code starts here 
+    # You should remove _raise_not_defined() after you complete your code
+    # Your code ends here 
+    _raise_not_defined()
+    return features
+
+'''
+Extract the final features that you would like to use
+'''
+def extract_final_features(digit_data, width, height): #make sure you fix this part !
+    features=[]
+    # Your code starts here 
+    # You should remove _raise_not_defined() after you complete your code
+    # Your code ends here 
+    for i in range(28):
+        for j in range(28):
+            if digit_data[i][j]==' ':
+                features.append(False)
+            else:
+                features.append(True)
+    return features
+
+'''
+Compupte the parameters including the prior and and all the P(x_i|y). Note
+that the features to be used must be computed using the passed in method
+feature_extractor, which takes in a single digit data along with the width
+and height of the image. For example, the method extract_basic_features
+defined above is a function than be passed in as a feature_extractor
+implementation.
+
+The percentage parameter controls what percentage of the example data
+should be used for training. 
+'''
+prior=[];
+cond= zeros([10,784]) # array 10X768, to hold all the conditional probability for true
+num=[0,0,0,0,0,0,0,0,0,0]
+cond2=zeros([14,10,28]) # whitespace, number, line
+
+def traverse_image(image,label):
+    global cond
+    global num
+    num[label]=num[label]+1
+    for i in range(784): # change thte 28 later 
+            if image[i]==1:
+                cond[label][i]=cond[label][i]+1.0
+                
+def helper_find_white(image,i):
+    whitespace=1;
+    isblack=False
+    for j in range(28):
+            if image[i*28+j]==0 and isblack==False:
+                continue
+            elif image[i*28+j]==1:
+                isblack=True
+            elif image[i]==0 and isblack==True:
+                isblack=False
+                whitespace=whitespace+1
+            else:
+                continue
+    return whitespace
+        
+def find_white(image,label):
+    global cond2
+    for i in range(28):
+        whitespace=helper_find_white(image,i)
+        #count the number of white spaces in the thing?
+        cond2[whitespace-1][label][i]=cond2[whitespace-1][label][i]+1;
+        
+def compute_statistics(data, label, width, height, feature_extractor, percentage=100.0):
+    #computed the p(y) values for the classifier
+    #why would you have the feature_extractor in this rn ? 
+    #percentage extractor will have to stop your training at a set percentage 
+    dec=percentage/100;
+    length=len(data)*dec
+    global prior
+    global cond
+    global num
+    global cond2
+    for i in range(10):
+        counter=0;
+        for j in range(int(length)):
+            if label[j]==i:
+                counter=counter+1;
+        prior.append(float(counter)/length) # this division needs to be float
+    for i in range(int(length)):
+        traverse_image(feature_extractor(data[i],28,28),label[i]) #add width height into
+        find_white(feature_extractor(data[i],28,28),label[i]) 
+    for i in range(10):
+        for j in range(784):
+            cond[i][j]=(cond[i][j]+1)/(num[i]+2) # this adds in a laplace smoothing into here
+    for i in range(14):
+        for j in range(10):
+            for k in range(28):
+                cond2[i][j][k]=(cond2[i][j][k]+1)/(float(num[j]+2))
+                
+
+'''
+For the given features for a single digit image, compute the class 
+'''
+
+def compute_class(features):
+    global cond
+    global prior
+    global cond2
+    predicted=-1;
+    test=[0,0,0,0,0,0,0,0,0,0]
+    for i in range(10):
+        for j in range(28):
+            #grabs the whitespaces per line
+            whitespace=helper_find_white(features,j)
+            test[i]=test[i]+Math.log(cond2[whitespace-1][i][j])
+    #think about whether you need to add P(Y) into here (idts)
+    
+    sum_var=0
+    #run that log formula in here ! 
+    for i in range(10):
+        for j in range(784):
+                if features[j]==0:
+                    sum_var=sum_var+Math.log((1-cond[i][j]))
+                else:
+                    sum_var=sum_var+Math.log(cond[i][j])
+        sum_var=sum_var+Math.log(prior[i])
+        test[i]=test[i]+sum_var
+        sum_var=0;
+    predicted=test.index(max(test))
+
+    return predicted
+
+'''
+Compute joint probaility for all the classes and make predictions for a list
+of data
+'''
+def classify(data, width, height, feature_extractor):
+    predicted=[]
+    for i in range(len(data)):
+        predicted.append(compute_class(feature_extractor(data[i],28,28)))
+    return predicted
+
